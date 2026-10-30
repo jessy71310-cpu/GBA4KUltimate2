@@ -87,7 +87,9 @@ class MainActivity : ComponentActivity() {
                 or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
             )
     }
-}@Composable
+}
+
+@Composable
 private fun EmulatorHome(
     gameFile: File?,
     importError: String?,
@@ -147,7 +149,8 @@ private fun EmulatorHome(
                     "Écran du jeu",
                     color = Accent,
                     style = MaterialTheme.typography.titleMedium
-                )                AndroidView(
+                )
+                AndroidView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp)
