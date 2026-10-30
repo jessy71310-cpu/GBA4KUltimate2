@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -210,6 +212,56 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                         }
                     }
 
+
+                    if (fullscreen && !menuOpen) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                TouchKey(retroView, "L", KeyEvent.KEYCODE_BUTTON_L1, 48.dp)
+                                Spacer(Modifier.height(8.dp))
+                                Column {
+                                    Row {
+                                        TouchKey(retroView, "↖", KeyEvent.KEYCODE_DPAD_UP_LEFT, 40.dp)
+                                        TouchKey(retroView, "↑", KeyEvent.KEYCODE_DPAD_UP, 40.dp)
+                                        TouchKey(retroView, "↗", KeyEvent.KEYCODE_DPAD_UP_RIGHT, 40.dp)
+                                    }
+                                    Row {
+                                        TouchKey(retroView, "←", KeyEvent.KEYCODE_DPAD_LEFT, 40.dp)
+                                        Spacer(Modifier.size(40.dp))
+                                        TouchKey(retroView, "→", KeyEvent.KEYCODE_DPAD_RIGHT, 40.dp)
+                                    }
+                                    Row {
+                                        TouchKey(retroView, "↙", KeyEvent.KEYCODE_DPAD_DOWN_LEFT, 40.dp)
+                                        TouchKey(retroView, "↓", KeyEvent.KEYCODE_DPAD_DOWN, 40.dp)
+                                        TouchKey(retroView, "↘", KeyEvent.KEYCODE_DPAD_DOWN_RIGHT, 40.dp)
+                                    }
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                TouchKey(retroView, "R", KeyEvent.KEYCODE_BUTTON_R1, 48.dp)
+                                Spacer(Modifier.height(12.dp))
+                                Row {
+                                    TouchKey(retroView, "B", KeyEvent.KEYCODE_BUTTON_A, 58.dp)
+                                    Spacer(Modifier.width(12.dp))
+                                    TouchKey(retroView, "A", KeyEvent.KEYCODE_BUTTON_B, 58.dp)
+                                }
+                                Spacer(Modifier.height(18.dp))
+                                Row {
+                                    TouchKey(retroView, "SELECT", KeyEvent.KEYCODE_BUTTON_SELECT, 54.dp)
+                                    Spacer(Modifier.width(10.dp))
+                                    TouchKey(retroView, "START", KeyEvent.KEYCODE_BUTTON_START, 54.dp)
+                                }
+                            }
+                        }
+                    }
+
                     if (menuOpen) {
                         Box(
                             Modifier.fillMaxSize().background(Color(0xB8000000)),
@@ -337,7 +389,7 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                     }
                 }
                 Text(
-                    "Les filtres IA et les commandes tactiles restent à développer.",
+                    "Les filtres IA restent à développer.",
                     modifier = Modifier.padding(12.dp),
                     color = Color(0xFFFFD28A),
                     style = MaterialTheme.typography.bodySmall
@@ -371,6 +423,38 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
             containerColor = Panel,
             titleContentColor = Color.White,
             textContentColor = Color(0xFFB8C5D6)
+        )
+    }
+}
+
+@Composable
+private fun TouchKey(
+    retroView: GLRetroView?,
+    label: String,
+    keyCode: Int,
+    buttonSize: androidx.compose.ui.unit.Dp
+) {
+    Box(
+        modifier = Modifier
+            .size(buttonSize)
+            .background(Color(0x770B1726), CircleShape)
+            .border(1.dp, Color(0x99FFFFFF), CircleShape)
+            .pointerInput(retroView, keyCode) {
+                detectTapGestures(onPress = {
+                    retroView?.sendKeyEvent(KeyEvent.ACTION_DOWN, keyCode)
+                    try {
+                        tryAwaitRelease()
+                    } finally {
+                        retroView?.sendKeyEvent(KeyEvent.ACTION_UP, keyCode)
+                    }
+                })
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.sp
         )
     }
 }
