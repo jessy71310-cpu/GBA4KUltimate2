@@ -23,6 +23,9 @@ import com.swordfish.libretrodroid.GLRetroView
 import com.swordfish.libretrodroid.GLRetroViewData
 import com.swordfish.libretrodroid.ShaderConfig
 import java.io.File
+import android.view.KeyEvent
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 private val Bg = Color(0xFF080D16)
 private val Panel = Color(0xFF121D2C)
@@ -106,7 +109,7 @@ private fun EmulatorHome(
     var optionsOpen by remember { mutableStateOf(false) }
     var selectedOption by remember { mutableStateOf<String?>(null) }
     var confirmExit by remember { mutableStateOf(false) }
-
+var retroView by remember { mutableStateOf<GLRetroView?>(null) }
     Surface(modifier = Modifier.fillMaxSize(), color = Bg) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (!fullscreen) {
@@ -184,12 +187,15 @@ private fun EmulatorHome(
                                 preferLowLatencyAudio = true
                             }
                             GLRetroView(viewContext, data).also {
-                                lifecycle.addObserver(it)
-                            }
+    retroView = it
+    lifecycle.addObserver(it)
+}
                         },
-                        onRelease = { lifecycle.removeObserver(it) }
-                    )
-
+                        onRelease = {
+    lifecycle.removeObserver(it)
+    if (retroView === it) retroView = null
+}
+)
                     if (fullscreen) {
                         TextButton(
                             onClick = {
