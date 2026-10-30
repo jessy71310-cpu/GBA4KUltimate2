@@ -31,6 +31,11 @@ import com.swordfish.libretrodroid.ShaderConfig
 import java.io.File
 import android.view.KeyEvent
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.roundToInt
 import androidx.compose.ui.input.pointer.pointerInput
 
 private val Bg = Color(0xFF080D16)
@@ -128,6 +133,13 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
         mutableStateOf(touchPreferences.getBoolean("hide_with_gamepad", true))
     }
     var hasGamepad by remember { mutableStateOf(false) }
+    var touchEditMode by remember { mutableStateOf(false) }
+    var touchButtonScale by remember {
+        mutableFloatStateOf(touchPreferences.getFloat("button_scale", 1f))
+    }
+    var touchButtonAlpha by remember {
+        mutableFloatStateOf(touchPreferences.getFloat("button_alpha", 0.47f))
+    }
 
     val inputManager = remember(context) {
         context.getSystemService(Context.INPUT_SERVICE) as InputManager
@@ -273,40 +285,40 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                TouchKey(retroView, "L", KeyEvent.KEYCODE_BUTTON_L1, 48.dp)
+                                TouchKey(retroView, "L", KeyEvent.KEYCODE_BUTTON_L1, 48.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                 Spacer(Modifier.height(8.dp))
                                 Column {
                                     Row {
-                                        TouchKey(retroView, "↖", KeyEvent.KEYCODE_DPAD_UP_LEFT, 40.dp)
-                                        TouchKey(retroView, "↑", KeyEvent.KEYCODE_DPAD_UP, 40.dp)
-                                        TouchKey(retroView, "↗", KeyEvent.KEYCODE_DPAD_UP_RIGHT, 40.dp)
+                                        TouchKey(retroView, "↖", KeyEvent.KEYCODE_DPAD_UP_LEFT, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
+                                        TouchKey(retroView, "↑", KeyEvent.KEYCODE_DPAD_UP, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
+                                        TouchKey(retroView, "↗", KeyEvent.KEYCODE_DPAD_UP_RIGHT, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                     }
                                     Row {
-                                        TouchKey(retroView, "←", KeyEvent.KEYCODE_DPAD_LEFT, 40.dp)
+                                        TouchKey(retroView, "←", KeyEvent.KEYCODE_DPAD_LEFT, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                         Spacer(Modifier.size(40.dp))
-                                        TouchKey(retroView, "→", KeyEvent.KEYCODE_DPAD_RIGHT, 40.dp)
+                                        TouchKey(retroView, "→", KeyEvent.KEYCODE_DPAD_RIGHT, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                     }
                                     Row {
-                                        TouchKey(retroView, "↙", KeyEvent.KEYCODE_DPAD_DOWN_LEFT, 40.dp)
-                                        TouchKey(retroView, "↓", KeyEvent.KEYCODE_DPAD_DOWN, 40.dp)
-                                        TouchKey(retroView, "↘", KeyEvent.KEYCODE_DPAD_DOWN_RIGHT, 40.dp)
+                                        TouchKey(retroView, "↙", KeyEvent.KEYCODE_DPAD_DOWN_LEFT, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
+                                        TouchKey(retroView, "↓", KeyEvent.KEYCODE_DPAD_DOWN, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
+                                        TouchKey(retroView, "↘", KeyEvent.KEYCODE_DPAD_DOWN_RIGHT, 40.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                     }
                                 }
                             }
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                TouchKey(retroView, "R", KeyEvent.KEYCODE_BUTTON_R1, 48.dp)
+                                TouchKey(retroView, "R", KeyEvent.KEYCODE_BUTTON_R1, 48.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                 Spacer(Modifier.height(12.dp))
                                 Row {
-                                    TouchKey(retroView, "B", KeyEvent.KEYCODE_BUTTON_A, 58.dp)
+                                    TouchKey(retroView, "B", KeyEvent.KEYCODE_BUTTON_A, 58.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                     Spacer(Modifier.width(12.dp))
-                                    TouchKey(retroView, "A", KeyEvent.KEYCODE_BUTTON_B, 58.dp)
+                                    TouchKey(retroView, "A", KeyEvent.KEYCODE_BUTTON_B, 58.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                 }
                                 Spacer(Modifier.height(18.dp))
                                 Row {
-                                    TouchKey(retroView, "SELECT", KeyEvent.KEYCODE_BUTTON_SELECT, 54.dp)
+                                    TouchKey(retroView, "SELECT", KeyEvent.KEYCODE_BUTTON_SELECT, 54.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                     Spacer(Modifier.width(10.dp))
-                                    TouchKey(retroView, "START", KeyEvent.KEYCODE_BUTTON_START, 54.dp)
+                                    TouchKey(retroView, "START", KeyEvent.KEYCODE_BUTTON_START, 54.dp, touchPreferences, touchEditMode, touchButtonScale, touchButtonAlpha)
                                 }
                             }
                         }
@@ -411,6 +423,43 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                                                 Modifier.fillMaxWidth(),
                                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
+                                                Text("Taille des boutons : ${(touchButtonScale * 100).roundToInt()} %", color = Accent)
+                                                Slider(
+                                                    value = touchButtonScale,
+                                                    onValueChange = { touchButtonScale = it },
+                                                    onValueChangeFinished = {
+                                                        touchPreferences.edit().putFloat("button_scale", touchButtonScale).apply()
+                                                    },
+                                                    valueRange = 0.65f..1.45f
+                                                )
+                                                Text("Transparence : ${(touchButtonAlpha * 100).roundToInt()} %", color = Accent)
+                                                Slider(
+                                                    value = touchButtonAlpha,
+                                                    onValueChange = { touchButtonAlpha = it },
+                                                    onValueChangeFinished = {
+                                                        touchPreferences.edit().putFloat("button_alpha", touchButtonAlpha).apply()
+                                                    },
+                                                    valueRange = 0.10f..1f
+                                                )
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text("Déplacer les boutons")
+                                                        Text(
+                                                            if (touchEditMode) "Fais glisser chaque bouton sur l’écran."
+                                                            else "Active pour déplacer les boutons individuellement.",
+                                                            color = Color(0xFFB8C5D6),
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                    }
+                                                    Switch(
+                                                        checked = touchEditMode,
+                                                        onCheckedChange = { touchEditMode = it }
+                                                    )
+                                                }
                                                 Row(
                                                     Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically,
@@ -535,27 +584,60 @@ private fun TouchKey(
     retroView: GLRetroView?,
     label: String,
     keyCode: Int,
-    buttonSize: androidx.compose.ui.unit.Dp
+    buttonSize: androidx.compose.ui.unit.Dp,
+    preferences: android.content.SharedPreferences,
+    editMode: Boolean,
+    scale: Float,
+    alpha: Float
 ) {
+    val density = LocalDensity.current
+    var position by remember(preferences, label) {
+        mutableStateOf(
+            Offset(
+                preferences.getFloat("pos_${label}_x", 0f),
+                preferences.getFloat("pos_${label}_y", 0f)
+            )
+        )
+    }
+
     Box(
         modifier = Modifier
-            .size(buttonSize)
-            .background(Color(0x770B1726), CircleShape)
-            .border(1.dp, Color(0x99FFFFFF), CircleShape)
-            .pointerInput(retroView, keyCode) {
-                detectTapGestures(onPress = {
-                    retroView?.sendKeyEvent(KeyEvent.ACTION_DOWN, keyCode)
-                    try {
-                        tryAwaitRelease()
-                    } finally {
-                        retroView?.sendKeyEvent(KeyEvent.ACTION_UP, keyCode)
+            .offset {
+                IntOffset(
+                    with(density) { position.x.dp.roundToPx() },
+                    with(density) { position.y.dp.roundToPx() }
+                )
+            }
+            .size(buttonSize * scale)
+            .background(Color(0xFF0B1726).copy(alpha = alpha), CircleShape)
+            .border(1.dp, Color.White.copy(alpha = (alpha * 0.75f).coerceIn(0.15f, 1f)), CircleShape)
+            .pointerInput(retroView, keyCode, editMode) {
+                if (editMode) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val dx = with(density) { dragAmount.x.toDp().value }
+                        val dy = with(density) { dragAmount.y.toDp().value }
+                        position = Offset(position.x + dx, position.y + dy)
+                        preferences.edit()
+                            .putFloat("pos_${label}_x", position.x)
+                            .putFloat("pos_${label}_y", position.y)
+                            .apply()
                     }
-                })
+                } else {
+                    detectTapGestures(onPress = {
+                        retroView?.sendKeyEvent(KeyEvent.ACTION_DOWN, keyCode)
+                        try {
+                            tryAwaitRelease()
+                        } finally {
+                            retroView?.sendKeyEvent(KeyEvent.ACTION_UP, keyCode)
+                        }
+                    })
+                }
             },
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = label,
+            text = if (editMode) "$label ⋮" else label,
             color = Color.White,
             fontSize = 12.sp
         )
