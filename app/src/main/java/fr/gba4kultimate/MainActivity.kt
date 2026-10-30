@@ -31,6 +31,7 @@ private val Accent = Color(0xFF70E1C1)
 class MainActivity : ComponentActivity() {
     private var gameFile by mutableStateOf<File?>(null)
     private var importError by mutableStateOf<String?>(null)
+    private var fullscreen by mutableStateOf(false)
 
     private val romPicker =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -68,6 +69,8 @@ class MainActivity : ComponentActivity() {
                     gameFile = gameFile,
                     importError = importError,
                     lifecycle = lifecycle,
+                    fullscreen = fullscreen,
+                    onFullscreenChange = { fullscreen = it },
                     onPickRom = {
                         romPicker.launch(arrayOf("*/*"))
                     }
@@ -94,67 +97,22 @@ private fun EmulatorHome(
     gameFile: File?,
     importError: String?,
     lifecycle: Lifecycle,
+    fullscreen: Boolean,
+    onFullscreenChange: (Boolean) -> Unit,
     onPickRom: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Bg
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        if (fullscreen && gameFile != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
             ) {
-                Column {
-                    Text("GBA 4K", fontSize = 28.sp, color = Color.White)
-                    Text("ULTIMATE • ANDROID", color = Accent, fontSize = 12.sp)
-                }
-                Text("mGBA ARM64", color = Accent, fontSize = 11.sp)
-            }
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("Bibliothèque", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        gameFile?.name ?: "Aucun jeu sélectionné",
-                        color = Color(0xFFB8C5D6)
-                    )
-                    Button(
-                        onClick = onPickRom,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Importer un jeu .gba")
-                    }
-                    if (importError != null) {
-                        Text(importError, color = Color(0xFFFF9B9B))
-                    }
-                }
-            }
-
-            if (gameFile != null) {
-                Text(
-                    "Écran du jeu",
-                    color = Accent,
-                    style = MaterialTheme.typography.titleMedium
-                )
                 AndroidView(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
-                        .background(Color.Black),
+                    modifier = Modifier.fillMaxSize(),
                     factory = { viewContext ->
                         val data = GLRetroViewData(viewContext).apply {
                             coreFilePath = "libmgba_libretro_android.so"
@@ -176,18 +134,112 @@ private fun EmulatorHome(
                         lifecycle.removeObserver(view)
                     }
                 )
-            } else {
+
+                Button(
+                    onClick = { onFullscreenChange(false) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                ) {
+                    Text("Retour")
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("GBA 4K", fontSize = 28.sp, color = Color.White)
+                        Text("ULTIMATE • ANDROID", color = Accent, fontSize = 12.sp)
+                    }
+                    Text("mGBA ARM64", color = Accent, fontSize = 11.sp)
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Panel),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Bibliothèque", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            gameFile?.name ?: "Aucun jeu sélectionné",
+                            color = Color(0xFFB8C5D6)
+                        )
+                        Button(
+                            onClick = onPickRom,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Importer un jeu .gba")
+                        }
+                        if (importError != null) {
+                            Text(importError, color = Color(0xFFFF9B9B))
+                        }
+                    }
+                }
+
+                if (gameFile != null) {
+                    Text(
+                        "Écran du jeu",
+                        color = Accent,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .background(Color.Black),
+                        factory = { viewContext ->
+                            val data = GLRetroViewData(viewContext).apply {
+                                coreFilePath = "libmgba_libretro_android.so"
+                                gameFilePath = gameFile.absolutePath
+                                gameFileBytes = null
+                                systemDirectory = viewContext.filesDir.absolutePath
+                                savesDirectory = viewContext.filesDir.absolutePath
+                                variables = arrayOf()
+                                saveRAMState = null
+                                shader = ShaderConfig.Default
+                                rumbleEventsEnabled = true
+                                preferLowLatencyAudio = true
+                            }
+                            GLRetroView(viewContext, data).also { view ->
+                                lifecycle.addObserver(view)
+                            }
+                        },
+                        onRelease = { view ->
+                            lifecycle.removeObserver(view)
+                        }
+                    )
+                    Button(
+                        onClick = { onFullscreenChange(true) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Jouer en plein écran")
+                    }
+                } else {
+                    Text(
+                        "Choisis un fichier de jeu GBA que tu possèdes.",
+                        color = Color(0xFFB8C5D6)
+                    )
+                }
+
                 Text(
-                    "Choisis un fichier de jeu GBA que tu possèdes.",
-                    color = Color(0xFFB8C5D6)
+                    "Les filtres IA et les commandes tactiles restent à développer.",
+                    color = Color(0xFFFFD28A),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
-
-            Text(
-                "Les filtres IA, le remaster 4K et les commandes tactiles restent à développer.",
-                color = Color(0xFFFFD28A),
-                style = MaterialTheme.typography.bodySmall
-            )
         }
     }
 }
