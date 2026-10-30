@@ -1,6 +1,9 @@
 package fr.gba4kultimate
 
 import android.net.Uri
+import android.content.Context
+import android.hardware.input.InputManager
+import android.view.InputDevice
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import com.swordfish.libretrodroid.GLRetroView
 import com.swordfish.libretrodroid.GLRetroViewData
@@ -112,6 +116,52 @@ private fun EmulatorHome(
     var selectedOption by remember { mutableStateOf<String?>(null) }
     var confirmExit by remember { mutableStateOf(false) }
 var retroView by remember { mutableStateOf<GLRetroView?>(null) }
+
+    val context = LocalContext.current
+    val touchPreferences = remember(context) {
+        context.getSharedPreferences("touch_controls", Context.MODE_PRIVATE)
+    }
+    var showTouchControls by remember {
+        mutableStateOf(touchPreferences.getBoolean("visible", true))
+    }
+    var hideTouchWithGamepad by remember {
+        mutableStateOf(touchPreferences.getBoolean("hide_with_gamepad", true))
+    }
+    var hasGamepad by remember { mutableStateOf(false) }
+
+    val inputManager = remember(context) {
+        context.getSystemService(Context.INPUT_SERVICE) as InputManager
+    }
+    val refreshGamepadState = {
+        hasGamepad = inputManager.inputDeviceIds.any { deviceId ->
+            val device = inputManager.getInputDevice(deviceId)
+            device != null && (
+                (device.sources and InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+                (device.sources and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
+            )
+        }
+    }
+
+    DisposableEffect(inputManager) {
+        val listener = object : InputManager.InputDeviceListener {
+            override fun onInputDeviceAdded(deviceId: Int) {
+                refreshGamepadState()
+            }
+
+            override fun onInputDeviceRemoved(deviceId: Int) {
+                refreshGamepadState()
+            }
+
+            override fun onInputDeviceChanged(deviceId: Int) {
+                refreshGamepadState()
+            }
+        }
+        inputManager.registerInputDeviceListener(listener, null)
+        refreshGamepadState()
+        onDispose {
+            inputManager.unregisterInputDeviceListener(listener)
+        }
+    }
     Surface(modifier = Modifier.fillMaxSize(), color = Bg) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (!fullscreen) {
@@ -213,7 +263,7 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                     }
 
 
-                    if (fullscreen && !menuOpen) {
+                    if (fullscreen && !menuOpen && showTouchControls && !(hideTouchWithGamepad && hasGamepad)) {
                         Row(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -356,7 +406,60 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                                             }
                                         }
 
-                                        if (selectedOption != null) {
+                                        if (selectedOption == "Commandes tactiles") {
+                                            Column(
+                                                Modifier.fillMaxWidth(),
+                                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text("Afficher les commandes tactiles")
+                                                        Text(
+                                                            "Afficher ou masquer les boutons à l’écran.",
+                                                            color = Color(0xFFB8C5D6),
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                    }
+                                                    Switch(
+                                                        checked = showTouchControls,
+                                                        onCheckedChange = {
+                                                            showTouchControls = it
+                                                            touchPreferences.edit()
+                                                                .putBoolean("visible", it)
+                                                                .apply()
+                                                        }
+                                                    )
+                                                }
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text("Masquer avec une manette")
+                                                        Text(
+                                                            if (hasGamepad) "Manette détectée."
+                                                            else "Aucune manette détectée.",
+                                                            color = if (hasGamepad) Accent else Color(0xFFB8C5D6),
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                    }
+                                                    Switch(
+                                                        checked = hideTouchWithGamepad,
+                                                        onCheckedChange = {
+                                                            hideTouchWithGamepad = it
+                                                            touchPreferences.edit()
+                                                                .putBoolean("hide_with_gamepad", it)
+                                                                .apply()
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        } else if (selectedOption != null) {
                                             Text(
                                                 "$selectedOption : cette rubrique sera configurée dans une prochaine étape.",
                                                 color = Accent,
