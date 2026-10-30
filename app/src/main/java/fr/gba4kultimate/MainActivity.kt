@@ -40,9 +40,7 @@ class MainActivity : ComponentActivity() {
                     val destination = File(filesDir, "current-game.gba")
                     contentResolver.openInputStream(uri).use { input ->
                         requireNotNull(input) { "Impossible de lire ce fichier." }
-                        destination.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
+                        destination.outputStream().use { output -> input.copyTo(output) }
                     }
                     require(destination.length() > 0) { "Le fichier est vide." }
                     gameFile = destination
@@ -71,9 +69,11 @@ class MainActivity : ComponentActivity() {
                     lifecycle = lifecycle,
                     fullscreen = fullscreen,
                     onFullscreenChange = { fullscreen = it },
-                    onPickRom = {
-                        romPicker.launch(arrayOf("*/*"))
-                    }
+                    onExitGame = {
+                        fullscreen = false
+                        gameFile = null
+                    },
+                    onPickRom = { romPicker.launch(arrayOf("*/*")) }
                 )
             }
         }
@@ -99,8 +99,14 @@ private fun EmulatorHome(
     lifecycle: Lifecycle,
     fullscreen: Boolean,
     onFullscreenChange: (Boolean) -> Unit,
+    onExitGame: () -> Unit,
     onPickRom: () -> Unit
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var optionsOpen by remember { mutableStateOf(false) }
+    var selectedOption by remember { mutableStateOf<String?>(null) }
+    var confirmExit by remember { mutableStateOf(false) }
+
     Surface(modifier = Modifier.fillMaxSize(), color = Bg) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (!fullscreen) {
@@ -129,7 +135,7 @@ private fun EmulatorHome(
                         shape = RoundedCornerShape(20.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text("Bibliothèque", style = MaterialTheme.typography.titleLarge)
@@ -149,31 +155,18 @@ private fun EmulatorHome(
                         }
                     }
 
-                    if (gameFile != null) {
-                        Text(
-                            "Écran du jeu",
-                            color = Accent,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    } else {
-                        Text(
-                            "Choisis un fichier de jeu GBA que tu possèdes.",
-                            color = Color(0xFFB8C5D6)
-                        )
-                    }
+                    Text(
+                        if (gameFile != null) "Écran du jeu"
+                        else "Choisis un fichier de jeu GBA que tu possèdes.",
+                        color = if (gameFile != null) Accent else Color(0xFFB8C5D6)
+                    )
                 }
             }
 
             if (gameFile != null) {
                 Box(
-                    modifier = if (fullscreen) {
-                        Modifier.fillMaxSize()
-                    } else {
-                        Modifier
-                            .fillMaxWidth()
-                            .height(300.dp)
-                            .background(Color.Black)
-                    }
+                    modifier = if (fullscreen) Modifier.fillMaxSize()
+                    else Modifier.fillMaxWidth().height(300.dp).background(Color.Black)
                 ) {
                     AndroidView(
                         modifier = Modifier.fillMaxSize(),
@@ -190,37 +183,139 @@ private fun EmulatorHome(
                                 rumbleEventsEnabled = true
                                 preferLowLatencyAudio = true
                             }
-                            GLRetroView(viewContext, data).also { view ->
-                                lifecycle.addObserver(view)
+                            GLRetroView(viewContext, data).also {
+                                lifecycle.addObserver(it)
                             }
                         },
-                        onRelease = { view ->
-                            lifecycle.removeObserver(view)
-                        }
+                        onRelease = { lifecycle.removeObserver(it) }
                     )
 
                     if (fullscreen) {
-                        Button(
-                            onClick = { onFullscreenChange(false) },
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 6.dp)
-                                .height(28.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = Color.White
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = 0.dp,
-                                pressedElevation = 0.dp
-                            ),
-                            contentPadding = PaddingValues(
-                                horizontal = 8.dp,
-                                vertical = 0.dp
-                            ),
-                            shape = RoundedCornerShape(50)
+                        TextButton(
+                            onClick = {
+                                menuOpen = true
+                                optionsOpen = false
+                                selectedOption = null
+                            },
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 3.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                         ) {
-                            Text("RETOUR", fontSize = 10.sp)
+                            Text("RETOUR", color = Color.White, fontSize = 11.sp)
+                        }
+                    }
+
+                    if (menuOpen) {
+                        Box(
+                            Modifier.fillMaxSize().background(Color(0xB8000000)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(0.82f).heightIn(max = 430.dp),
+                                colors = CardDefaults.cardColors(containerColor = Panel),
+                                shape = RoundedCornerShape(22.dp)
+                            ) {
+                                Column(
+                                    Modifier.fillMaxWidth()
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        "GBA 4K ULTIMATE",
+                                        color = Accent,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+
+                                    if (!optionsOpen) {
+                                        Text(
+                                            "MENU DU JEU",
+                                            style = MaterialTheme.typography.headlineSmall
+                                        )
+                                        Button(
+                                            onClick = { menuOpen = false },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("REPRENDRE LE JEU")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { optionsOpen = true },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("⚙  OPTIONS")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { confirmExit = true },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = Color(0xFFFF9B9B)
+                                            )
+                                        ) {
+                                            Text("QUITTER LE JEU")
+                                        }
+                                    } else {
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            TextButton(onClick = {
+                                                optionsOpen = false
+                                                selectedOption = null
+                                            }) {
+                                                Text("← RETOUR")
+                                            }
+                                            Spacer(Modifier.weight(1f))
+                                            Text(
+                                                "OPTIONS",
+                                                style = MaterialTheme.typography.titleLarge
+                                            )
+                                        }
+
+                                        val categories = listOf(
+                                            "Commandes tactiles" to
+                                                "Réglages des boutons à l’écran",
+                                            "Manette Bluetooth" to
+                                                "Connexion et attribution des boutons",
+                                            "Image" to
+                                                "Plein écran, étirement et filtres",
+                                            "Sauvegardes" to
+                                                "Sauvegardes de jeu et états rapides"
+                                        )
+
+                                        categories.forEach { (name, description) ->
+                                            OutlinedButton(
+                                                onClick = { selectedOption = name },
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Column(Modifier.fillMaxWidth()) {
+                                                    Text(name)
+                                                    Text(
+                                                        description,
+                                                        color = Color(0xFFB8C5D6),
+                                                        style = MaterialTheme.typography.bodySmall
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        if (selectedOption != null) {
+                                            Text(
+                                                "$selectedOption : cette rubrique sera configurée dans une prochaine étape.",
+                                                color = Accent,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+
+                                        TextButton(onClick = {
+                                            menuOpen = false
+                                            optionsOpen = false
+                                            selectedOption = null
+                                        }) {
+                                            Text("REPRENDRE LE JEU")
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -230,9 +325,7 @@ private fun EmulatorHome(
                 if (gameFile != null) {
                     Button(
                         onClick = { onFullscreenChange(true) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
+                        modifier = Modifier.fillMaxWidth().padding(12.dp)
                     ) {
                         Text("Jouer en plein écran")
                     }
@@ -245,5 +338,33 @@ private fun EmulatorHome(
                 )
             }
         }
+    }
+
+    if (confirmExit) {
+        AlertDialog(
+            onDismissRequest = { confirmExit = false },
+            title = { Text("Quitter le jeu ?") },
+            text = {
+                Text("La partie en cours sera fermée et tu reviendras à la bibliothèque.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmExit = false
+                    menuOpen = false
+                    optionsOpen = false
+                    onExitGame()
+                }) {
+                    Text("QUITTER", color = Color(0xFFFF9B9B))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmExit = false }) {
+                    Text("ANNULER")
+                }
+            },
+            containerColor = Panel,
+            titleContentColor = Color.White,
+            textContentColor = Color(0xFFB8C5D6)
+        )
     }
 }
