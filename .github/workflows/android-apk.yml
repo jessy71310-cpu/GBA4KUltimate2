@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Recuperer le projet
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Installer Java
         uses: actions/setup-java@v4
@@ -28,8 +30,8 @@ jobs:
         with:
           packages: "platform-tools"
 
-      - name: Installer les composants Android
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Installer les composants Android et natifs
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
 
       - name: Construire l'APK
         run: gradle :app:assembleDebug

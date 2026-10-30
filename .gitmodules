@@ -1,0 +1,4 @@
+[submodule "external/libretrodroid"]
+	path = external/libretrodroid
+	url = https://github.com/jessy71310-cpu/LibretroDroid.git
+	branch = gba4k-stretch

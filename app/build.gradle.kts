@@ -36,5 +36,5 @@ dependencies {
 
     // Planned emulator frontend dependency. The mGBA libretro core (.so) still
     // needs to be built/bundled and wired to the frontend before gameplay works.
-    implementation("com.github.swordfish90:libretrodroid:0.13.2")
+    implementation(project(":libretrodroid"))
 }

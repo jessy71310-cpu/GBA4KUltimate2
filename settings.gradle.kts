@@ -5,3 +5,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "GBA4KUltimate"
 include(":app")
+
+include(":libretrodroid")
+project(":libretrodroid").projectDir = file("external/libretrodroid/libretrodroid")
