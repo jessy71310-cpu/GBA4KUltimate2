@@ -1,5 +1,6 @@
 package fr.gba4kultimate
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,8 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,30 +17,60 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.net.Uri
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import com.swordfish.libretrodroid.GLRetroView
+import com.swordfish.libretrodroid.GLRetroViewData
+import com.swordfish.libretrodroid.ShaderConfig
+import java.io.File
 
 private val Bg = Color(0xFF080D16)
 private val Panel = Color(0xFF121D2C)
 private val Accent = Color(0xFF70E1C1)
 
 class MainActivity : ComponentActivity() {
-    private var selectedRom by mutableStateOf<Uri?>(null)
-    private val romPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        selectedRom = uri
-        uri?.let { contentResolver.takePersistableUriPermission(it, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-    }
+    private var gameFile by mutableStateOf<File?>(null)
+    private var importError by mutableStateOf<String?>(null)
+
+    private val romPicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            if (uri != null) {
+                try {
+                    val destination = File(filesDir, "current-game.gba")
+                    contentResolver.openInputStream(uri).use { input ->
+                        requireNotNull(input) { "Impossible de lire ce fichier." }
+                        destination.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    require(destination.length() > 0) { "Le fichier est vide." }
+                    gameFile = destination
+                    importError = null
+                } catch (error: Exception) {
+                    importError = "Import impossible : ${error.localizedMessage}"
+                    gameFile = null
+                }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableImmersiveMode()
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
-                primary = Accent, background = Bg, surface = Panel,
-                onBackground = Color.White, onSurface = Color.White
+                primary = Accent,
+                background = Bg,
+                surface = Panel,
+                onBackground = Color.White,
+                onSurface = Color.White
             )) {
-                PrototypeHome(
-                    selectedRom = selectedRom,
-                    onPickRom = { romPicker.launch(arrayOf("*/*")) }
+                EmulatorHome(
+                    gameFile = gameFile,
+                    importError = importError,
+                    lifecycle = lifecycle,
+                    onPickRom = {
+                        romPicker.launch(arrayOf("*/*"))
+                    }
                 )
             }
         }
@@ -54,82 +85,106 @@ class MainActivity : ComponentActivity() {
                 or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-        )
+            )
     }
-}
-
-@Composable
-private fun PrototypeHome(selectedRom: Uri?, onPickRom: () -> Unit) {
-    var graphicsMode by remember { mutableStateOf("AI Enhance") }
-    var smoothing by remember { mutableFloatStateOf(0.75f) }
-    var sharpness by remember { mutableFloatStateOf(0.35f) }
-
-    Surface(modifier = Modifier.fillMaxSize(), color = Bg) {
+}@Composable
+private fun EmulatorHome(
+    gameFile: File?,
+    importError: String?,
+    lifecycle: Lifecycle,
+    onPickRom: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Bg
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Column {
-                    Text("GBA 4K", fontSize = 30.sp, color = Color.White)
-                    Text("ULTIMATE  •  ANDROID", color = Accent, fontSize = 12.sp)
+                    Text("GBA 4K", fontSize = 28.sp, color = Color.White)
+                    Text("ULTIMATE • ANDROID", color = Accent, fontSize = 12.sp)
                 }
-                Text("PROTOTYPE", color = Accent, fontSize = 11.sp)
+                Text("mGBA ARM64", color = Accent, fontSize = 11.sp)
             }
 
-            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text("Bibliothèque", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        selectedRom?.lastPathSegment ?: "Aucun jeu sélectionné",
+                        gameFile?.name ?: "Aucun jeu sélectionné",
                         color = Color(0xFFB8C5D6)
                     )
-                    Button(onClick = onPickRom, modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onPickRom,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Importer un jeu .gba")
                     }
-                    Text(
-                        "La sélection de fichier est prête. Le lancement du jeu nécessite encore le cœur mGBA natif.",
-                        color = Color(0xFFFFD28A),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-
-            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("Moteur graphique", style = MaterialTheme.typography.titleLarge)
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        listOf("AI Enhance", "HD Remaster").forEachIndexed { index, mode ->
-                            SegmentedButton(
-                                selected = graphicsMode == mode,
-                                onClick = { graphicsMode = mode },
-                                shape = SegmentedButtonDefaults.itemShape(index, 2)
-                            ) { Text(if (mode == "AI Enhance") "IA" else "Remaster") }
-                        }
+                    if (importError != null) {
+                        Text(importError, color = Color(0xFFFF9B9B))
                     }
-                    Text("Lissage  •  ${(smoothing * 100).toInt()}%")
-                    Slider(value = smoothing, onValueChange = { smoothing = it })
-                    Text("Netteté  •  ${(sharpness * 100).toInt()}%")
-                    Slider(value = sharpness, onValueChange = { sharpness = it })
-                    Text(
-                        "Mode choisi : $graphicsMode. Ces commandes sont l'interface de réglage ; les filtres GPU et l'upscaler IA restent à intégrer.",
-                        color = Color(0xFFB8C5D6),
-                        style = MaterialTheme.typography.bodySmall
-                    )
                 }
             }
 
-            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Profil Galaxy S25+", style = MaterialTheme.typography.titleMedium)
-                    Text("Plein écran immersif • paysage • cible QHD+ • rendu haute résolution adaptatif",
-                        color = Color(0xFFB8C5D6))
-                    Text("Le 4K désigne une résolution de rendu intermédiaire éventuelle : l'écran du S25+ est QHD+.",
-                        color = Color(0xFFB8C5D6), style = MaterialTheme.typography.bodySmall)
-                }
+            if (gameFile != null) {
+                Text(
+                    "Écran du jeu",
+                    color = Accent,
+                    style = MaterialTheme.typography.titleMedium
+                )                AndroidView(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .background(Color.Black),
+                    factory = { viewContext ->
+                        val data = GLRetroViewData(viewContext).apply {
+                            coreFilePath = "libmgba_libretro_android.so"
+                            gameFilePath = gameFile.absolutePath
+                            gameFileBytes = null
+                            systemDirectory = viewContext.filesDir.absolutePath
+                            savesDirectory = viewContext.filesDir.absolutePath
+                            variables = arrayOf()
+                            saveRAMState = null
+                            shader = ShaderConfig.Default
+                            rumbleEventsEnabled = true
+                            preferLowLatencyAudio = true
+                        }
+                        GLRetroView(viewContext, data).also { view ->
+                            lifecycle.addObserver(view)
+                        }
+                    },
+                    onRelease = { view ->
+                        lifecycle.removeObserver(view)
+                    }
+                )
+            } else {
+                Text(
+                    "Choisis un fichier de jeu GBA que tu possèdes.",
+                    color = Color(0xFFB8C5D6)
+                )
             }
-            Text("Prototype d'interface — ne lance pas encore les ROM.", color = Color(0xFFFFD28A))
+
+            Text(
+                "Les filtres IA, le remaster 4K et les commandes tactiles restent à développer.",
+                color = Color(0xFFFFD28A),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
