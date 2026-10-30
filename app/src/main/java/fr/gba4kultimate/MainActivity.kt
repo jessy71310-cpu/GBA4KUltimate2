@@ -165,7 +165,7 @@ private fun EmulatorHome(
             }
 
             if (gameFile != null) {
-                AndroidView(
+                Box(
                     modifier = if (fullscreen) {
                         Modifier.fillMaxSize()
                     } else {
@@ -173,28 +173,57 @@ private fun EmulatorHome(
                             .fillMaxWidth()
                             .height(300.dp)
                             .background(Color.Black)
-                    },
-                    factory = { viewContext ->
-                        val data = GLRetroViewData(viewContext).apply {
-                            coreFilePath = "libmgba_libretro_android.so"
-                            gameFilePath = gameFile.absolutePath
-                            gameFileBytes = null
-                            systemDirectory = viewContext.filesDir.absolutePath
-                            savesDirectory = viewContext.filesDir.absolutePath
-                            variables = arrayOf()
-                            saveRAMState = null
-                            shader = ShaderConfig.Default
-                            rumbleEventsEnabled = true
-                            preferLowLatencyAudio = true
-                        }
-                        GLRetroView(viewContext, data).also { view ->
-                            lifecycle.addObserver(view)
-                        }
-                    },
-                    onRelease = { view ->
-                        lifecycle.removeObserver(view)
                     }
-                )
+                ) {
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { viewContext ->
+                            val data = GLRetroViewData(viewContext).apply {
+                                coreFilePath = "libmgba_libretro_android.so"
+                                gameFilePath = gameFile.absolutePath
+                                gameFileBytes = null
+                                systemDirectory = viewContext.filesDir.absolutePath
+                                savesDirectory = viewContext.filesDir.absolutePath
+                                variables = arrayOf()
+                                saveRAMState = null
+                                shader = ShaderConfig.Default
+                                rumbleEventsEnabled = true
+                                preferLowLatencyAudio = true
+                            }
+                            GLRetroView(viewContext, data).also { view ->
+                                lifecycle.addObserver(view)
+                            }
+                        },
+                        onRelease = { view ->
+                            lifecycle.removeObserver(view)
+                        }
+                    )
+
+                    if (fullscreen) {
+                        Button(
+                            onClick = { onFullscreenChange(false) },
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 6.dp)
+                                .height(28.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 0.dp,
+                                pressedElevation = 0.dp
+                            ),
+                            contentPadding = PaddingValues(
+                                horizontal = 8.dp,
+                                vertical = 0.dp
+                            ),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text("RETOUR", fontSize = 10.sp)
+                        }
+                    }
+                }
             }
 
             if (!fullscreen) {
@@ -214,18 +243,6 @@ private fun EmulatorHome(
                     color = Color(0xFFFFD28A),
                     style = MaterialTheme.typography.bodySmall
                 )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.TopEnd
-                ) {
-                    Button(
-                        onClick = { onFullscreenChange(false) },
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text("Retour")
-                    }
-                }
             }
         }
     }
