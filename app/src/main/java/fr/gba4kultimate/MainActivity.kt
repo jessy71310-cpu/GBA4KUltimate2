@@ -126,6 +126,12 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
     val touchPreferences = remember(context) {
         context.getSharedPreferences("touch_controls", Context.MODE_PRIVATE)
     }
+    val displayPreferences = remember(context) {
+        context.getSharedPreferences("display_settings", Context.MODE_PRIVATE)
+    }
+    var hdrEnabled by remember {
+        mutableStateOf(displayPreferences.getBoolean("hdr_enabled", false))
+    }
     var showTouchControls by remember {
         mutableStateOf(touchPreferences.getBoolean("visible", true))
     }
@@ -246,7 +252,7 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                                 savesDirectory = viewContext.filesDir.absolutePath
                                 variables = arrayOf()
                                 saveRAMState = null
-                                shader = ShaderConfig.Default
+                                shader = if (hdrEnabled) ShaderConfig.HDR else ShaderConfig.Default
                                 rumbleEventsEnabled = true
                                 preferLowLatencyAudio = true
                             }
@@ -508,6 +514,34 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                                                     )
                                                 }
                                             }
+                                        } else if (selectedOption == "Image") {
+                                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                Text("Effets visuels", color = Accent)
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text("Effet HDR logiciel")
+                                                        Text(
+                                                            "Contraste et couleurs renforcés",
+                                                            color = Color(0xFFB8C5D6),
+                                                            style = MaterialTheme.typography.bodySmall
+                                                        )
+                                                    }
+                                                    Switch(
+                                                        checked = hdrEnabled,
+                                                        onCheckedChange = { enabled ->
+                                                            hdrEnabled = enabled
+                                                            displayPreferences.edit()
+                                                                .putBoolean("hdr_enabled", enabled)
+                                                                .apply()
+                                                            retroView?.shader = if (enabled) ShaderConfig.HDR else ShaderConfig.Default
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         } else if (selectedOption != null) {
                                             Text(
                                                 "$selectedOption : cette rubrique sera configurée dans une prochaine étape.",
@@ -516,7 +550,7 @@ var retroView by remember { mutableStateOf<GLRetroView?>(null) }
                                             )
                                         }
 
-                                        TextButton(onClick = {
+    TextButton(onClick = {
                                             menuOpen = false
                                             optionsOpen = false
                                             selectedOption = null
