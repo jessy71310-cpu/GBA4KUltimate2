@@ -68,6 +68,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val hdr = windowManager.defaultDisplay.hdrCapabilities
+        android.util.Log.i(
+            "GBA4K_HDR",
+            "Types=${hdr.supportedHdrTypes.contentToString()}, " +
+                "Luminosité max=${hdr.desiredMaxLuminance}, " +
+                "moyenne=${hdr.desiredMaxAverageLuminance}, " +
+                "min=${hdr.desiredMinLuminance}"
+        )
+
         enableImmersiveMode()
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
