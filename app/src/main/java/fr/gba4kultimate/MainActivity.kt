@@ -119,6 +119,20 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+private fun getRomId(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count == -1) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest().joinToString("") {
+        "%02x".format(it)
+    }
+}
 private fun EmulatorHome(
     gameFile: File?,
     importError: String?,
