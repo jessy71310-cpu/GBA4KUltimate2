@@ -133,6 +133,8 @@ private fun EmulatorHome(
     var selectedOption by remember { mutableStateOf<String?>(null) }
     var confirmExit by remember { mutableStateOf(false) }
 var retroView by remember { mutableStateOf<GLRetroView?>(null) }
+private var currentRomId: String? = null
+private var saveStatus: String = ""
 
     val context = LocalContext.current
     val touchPreferences = remember(context) {
